@@ -30,10 +30,12 @@ client/.env.production
 functions/.env
 functions/.env.local
 functions/.env.*.local
+functions/.env.*
 
 # 단, 템플릿용 .env.example 파일은 깃에 포함하여 가이드 제공
 !.env.example
 !client/.env.example
+!functions/.env.example
 
 # ------------------------------------------------------------------------------
 # 3. 의존성 패키지 (Dependencies)

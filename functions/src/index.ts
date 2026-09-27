@@ -90,11 +90,14 @@ const handleStatus = async (req: Request, res: Response) => {
       });
     }
 
+    const envName = process.env.ENVIRONMENT || 'production';
+
     return res.status(200).json({
       aiOnline: true,
+      environment: envName,
       latencyMs,
       engine: `Firebase Functions Gemini Bridge (${model})`,
-      message: `Gemini API 백엔드 연결 성공 (${model}, 응답: ${latencyMs}ms)`,
+      message: `Gemini API 백엔드 연결 성공 (${model}, 환경: ${envName}, 응답: ${latencyMs}ms)`,
       lastChecked: new Date().toLocaleTimeString(),
     });
   } catch (err: any) {
