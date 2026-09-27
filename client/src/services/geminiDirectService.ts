@@ -267,80 +267,97 @@ ${longEssayDirective}
   return { prompt, systemInstruction };
 }
 
-/**
- * 2. Gemini API 키 실시간 유효성 테스트 (Ping)
- */
-export async function testDirectGeminiConnection(
-  apiKey: string,
-  model?: string
-): Promise<{ success: boolean; latencyMs: number; message: string }> {
-  const cleanKey = apiKey.trim();
-  if (!cleanKey) {
-    return { success: false, latencyMs: 0, message: 'Gemini API 키가 입력되지 않았습니다.' };
+export function getFunctionsApiUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const customUrl = import.meta.env.VITE_FUNCTIONS_API_URL;
+  if (customUrl && typeof customUrl === 'string') {
+    return `${customUrl.replace(/\/+$/, '')}${cleanPath}`;
   }
-
-  const targetModel = model || getDirectGeminiModel();
-  const startTime = Date.now();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${cleanKey}`;
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: 'Respond with exactly: {"status":"ok"}' }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 20,
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-
-    const latencyMs = Date.now() - startTime;
-
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => null);
-      const errMsg = errJson?.error?.message || `HTTP ${res.status} (${res.statusText})`;
-      return {
-        success: false,
-        latencyMs,
-        message: `Gemini API 호출 실패: ${errMsg}`,
-      };
-    }
-
-    const data = await res.json();
-    if (data.candidates && data.candidates.length > 0) {
-      return {
-        success: true,
-        latencyMs,
-        message: `Gemini API 연결 성공! (${targetModel}, 응답시간: ${latencyMs}ms)`,
-      };
-    }
-
-    return {
-      success: true,
-      latencyMs,
-      message: `Gemini API 연결 성공 (${targetModel})`,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      latencyMs: Date.now() - startTime,
-      message: `네트워크 연결 오류: ${err.message || String(err)}`,
-    };
-  }
+  return `/api${cleanPath}`;
 }
 
 /**
- * 3. Gemini API 직접 호출을 통한 실시간 에세이 평가 실행 ("프롬프트 한방")
+ * 2. Gemini API 실시간 유효성 테스트 (Cloud Functions 백엔드 또는 직결 Ping)
+ */
+export async function testDirectGeminiConnection(
+  apiKey?: string,
+  model?: string
+): Promise<{ success: boolean; latencyMs: number; message: string }> {
+  const targetModel = model || getDirectGeminiModel();
+  const customKey = (apiKey || getDirectGeminiApiKey()).trim();
+  const startTime = Date.now();
+
+  // 1) 백엔드 Cloud Functions의 /api/status 엔드포인트 호출
+  try {
+    const statusUrl = getFunctionsApiUrl('/status');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (customKey) {
+      headers['x-gemini-api-key'] = customKey;
+    }
+
+    const res = await fetch(statusUrl, {
+      method: 'GET',
+      headers,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        success: data.aiOnline ?? true,
+        latencyMs: data.latencyMs ?? (Date.now() - startTime),
+        message: data.message || `백엔드 Functions 연결 성공 (${targetModel})`,
+      };
+    }
+  } catch (backendErr) {
+    console.warn('[AI Service] Functions 상태 확인 실패, 직결 테스트 시도:', backendErr);
+  }
+
+  // 2) 백엔드 응답이 불가능하고 커스텀 키가 있는 경우 브라우저 직결 핑 fallback
+  if (customKey) {
+    const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${customKey}`;
+    try {
+      const res = await fetch(directUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Respond with exactly: {"status":"ok"}' }] }],
+          generationConfig: { maxOutputTokens: 20, temperature: 0.1, responseMimeType: 'application/json' },
+        }),
+      });
+      const latencyMs = Date.now() - startTime;
+      if (res.ok) {
+        return {
+          success: true,
+          latencyMs,
+          message: `Gemini API 연결 성공 (${targetModel}, 직결 모드, ${latencyMs}ms)`,
+        };
+      }
+      const errJson = await res.json().catch(() => null);
+      return {
+        success: false,
+        latencyMs,
+        message: `Gemini API 호출 실패: ${errJson?.error?.message || res.statusText}`,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        latencyMs: Date.now() - startTime,
+        message: `네트워크 연결 오류: ${err.message || String(err)}`,
+      };
+    }
+  }
+
+  return {
+    success: false,
+    latencyMs: Date.now() - startTime,
+    message: 'Cloud Functions 백엔드 연결에 실패했으며 등록된 로컬 API 키가 없습니다.',
+  };
+}
+
+/**
+ * 3. Gemini API 실시간 에세이 평가 실행 (Cloud Functions 백엔드 경유)
  */
 export async function evaluateWithDirectGemini(
   content: string,
@@ -349,24 +366,74 @@ export async function evaluateWithDirectGemini(
   config?: Partial<GeminiDirectConfig>
 ): Promise<{ result: AssessmentResult; engine: string }> {
   const apiKey = config?.apiKey || getDirectGeminiApiKey();
-  if (!apiKey || !apiKey.trim()) {
-    const err = new Error(
-      'Gemini API 키가 등록되지 않았습니다.\n.env.local 파일에 VITE_GEMINI_API_KEY를 설정하시거나, 상단 [AI 설정] 모달에서 API 키를 등록해 주세요.'
-    );
-    (err as any).code = 'MISSING_API_KEY';
-    throw err;
-  }
-
   const model = config?.model || getDirectGeminiModel();
-  const temperature = config?.temperature ?? 0.2;
-  const topP = config?.topP ?? 0.85;
-  const topK = config?.topK ?? 40;
-  const maxOutputTokens = config?.maxOutputTokens ?? 8192;
   const customSystemPrompt = config?.customSystemPrompt || (
     typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_GEMINI_SYSTEM_PROMPT) || undefined : undefined
   );
 
-  // 1. 단일 마스터 프롬프트 생성
+  // 1) Cloud Functions 백엔드 (/api/evaluate) 우선 호출 (보안 최우선 방식)
+  try {
+    const evalUrl = getFunctionsApiUrl('/evaluate');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey && apiKey.trim()) {
+      headers['x-gemini-api-key'] = apiKey.trim();
+    }
+
+    const payload = {
+      content,
+      guide,
+      studentName,
+      customSystemPrompt,
+      model,
+      temperature: config?.temperature ?? 0.2,
+      topP: config?.topP ?? 0.85,
+      topK: config?.topK ?? 40,
+      maxOutputTokens: config?.maxOutputTokens ?? 8192,
+    };
+
+    console.log('[AI Provider] Cloud Functions 백엔드로 평가를 요청합니다:', evalUrl);
+    const res = await fetch(evalUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.result) {
+        return {
+          result: data.result,
+          engine: data.engine || `Firebase Cloud Functions (${model})`,
+        };
+      }
+    } else {
+      const errJson = await res.json().catch(() => null);
+      console.warn('[AI Provider] 백엔드 Functions 호출 실패:', errJson?.error || res.statusText);
+      if (!apiKey && errJson?.error) {
+        throw new Error(errJson.error);
+      }
+    }
+  } catch (fnErr: any) {
+    console.warn('[AI Provider] 백엔드 Functions 연결 에러:', fnErr);
+    if (!apiKey) {
+      throw new Error(
+        `Cloud Functions 평가 서버 연결에 실패했습니다: ${fnErr.message || '서버 응답 없음'}\n잠시 후 다시 시도해 주세요.`
+      );
+    }
+  }
+
+  // 2) 커스텀 로컬 키가 있는 경우에 한해 브라우저 직결 Fallback
+  if (!apiKey || !apiKey.trim()) {
+    throw new Error('평가 서버에 연결할 수 없으며 설정된 API 키가 없습니다.');
+  }
+
+  const temperature = config?.temperature ?? 0.2;
+  const topP = config?.topP ?? 0.85;
+  const topK = config?.topK ?? 40;
+  const maxOutputTokens = config?.maxOutputTokens ?? 8192;
+
   const { prompt, systemInstruction } = buildMasterEvaluationPrompt(
     content,
     guide,
@@ -374,7 +441,7 @@ export async function evaluateWithDirectGemini(
     customSystemPrompt
   );
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+  const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
 
   const payload = {
     contents: [
@@ -400,7 +467,7 @@ export async function evaluateWithDirectGemini(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(directUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

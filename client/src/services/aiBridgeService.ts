@@ -24,48 +24,40 @@ export interface AIHomeServerStatus {
 }
 
 /**
- * Google Gemini API 실시간 상태 및 연결 테스트
+ * Google Gemini AI 실시간 상태 및 연결 테스트 (Firebase Functions 백엔드 경유)
  */
 export async function checkAiServiceStatus(): Promise<AIHomeServerStatus> {
   const apiKey = getDirectGeminiApiKey();
   const model = getDirectGeminiModel();
-
-  if (!apiKey) {
-    return {
-      aiOnline: false,
-      engine: `Google Gemini (${model} 직접 연동)`,
-      message: 'Gemini API 키가 등록되지 않았습니다 (상단 [AI 설정]에서 등록).',
-      lastChecked: new Date().toLocaleTimeString(),
-    };
-  }
 
   try {
     const testRes = await testDirectGeminiConnection(apiKey, model);
     return {
       aiOnline: testRes.success,
       latencyMs: testRes.latencyMs,
-      engine: `Google Gemini (${model} 직접 연동)`,
+      engine: apiKey ? `Google Gemini (${model}, 커스텀 키)` : `Firebase Functions Cloud (${model})`,
       message: testRes.message,
       lastChecked: new Date().toLocaleTimeString(),
     };
   } catch (err: any) {
     return {
       aiOnline: false,
-      engine: `Google Gemini (${model} 직접 연동)`,
-      message: `Gemini API 연결 실패: ${err.message || '네트워크 오류'}`,
+      engine: `Firebase Functions Cloud (${model})`,
+      message: `AI 평가 서버 연결 실패: ${err.message || '네트워크 오류'}`,
       lastChecked: new Date().toLocaleTimeString(),
     };
   }
 }
 
 /**
- * 실시간 동기 AI 에세이 다면평가 요청 (Google Gemini 직접 호출)
+ * 실시간 동기 AI 에세이 다면평가 요청 (Firebase Functions 백엔드 호출)
  */
 export async function evaluateEssayDynamic(
   content: string,
   guide: AssessmentGuide,
   studentName: string
 ): Promise<{ result: AssessmentResult; engine: string }> {
-  console.log('[AI Provider] 브라우저에서 Google Gemini API로 직접 호출합니다.');
+  console.log('[AI Provider] Firebase Cloud Functions 백엔드를 통해 안전하게 다면평가를 요청합니다.');
   return await evaluateWithDirectGemini(content, guide, studentName);
 }
+

@@ -304,7 +304,7 @@ export const AIHomeServerAdminModal: React.FC<AIHomeServerAdminModalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mt-1">
-                    브라우저에서 Google 최신 Gemini 모델로 학생 에세이·루브릭·참조자료를 직접 호출하여 실시간 평가합니다.
+                    Firebase Cloud Functions 서버를 통해 Gemini API를 안전하게 호출하여 브라우저에 키 노출 없이 실시간 다면평가를 수행합니다.
                   </p>
                 </div>
               </div>
@@ -316,7 +316,7 @@ export const AIHomeServerAdminModal: React.FC<AIHomeServerAdminModalProps> = ({
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                       <Key className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Google Gemini API Key</span>
+                      <span>개인 커스텀 Gemini API Key (선택 사항)</span>
                     </label>
                     <a
                       href="https://aistudio.google.com/app/apikey"
@@ -333,7 +333,7 @@ export const AIHomeServerAdminModal: React.FC<AIHomeServerAdminModalProps> = ({
                       type={showApiKey ? 'text' : 'password'}
                       value={directApiKey}
                       onChange={(e) => setDirectApiKey(e.target.value)}
-                      placeholder="AQ... 또는 AIzaSy... 형식의 Gemini API 키를 입력하세요"
+                      placeholder="비워두시면 Firebase Cloud Functions 서버에 구성된 표준 API 키로 자동 평가됩니다."
                       className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:border-indigo-500 outline-none transition shadow-2xs"
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -348,7 +348,7 @@ export const AIHomeServerAdminModal: React.FC<AIHomeServerAdminModalProps> = ({
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    * 브라우저 로컬 스토리지에 안전하게 암호화 보관되며, 서버로 유출되지 않습니다.
+                    * 비워두시면 서버 백엔드 전용 키로 안전하게 평가되며, 개인 키를 입력하시면 브라우저 로컬 스토리지에만 저장되어 우선 사용됩니다.
                   </p>
                 </div>
 
