@@ -1,0 +1,65 @@
+/* ========================================================= */
+/* Section 1: Tailwind Directives                            */
+/* ========================================================= */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================= */
+/* Section 2: Typography & Base Layout Reset                 */
+/* ========================================================= */
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased font-sans selection:bg-indigo-100 selection:text-indigo-900;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ========================================================= */
+/* Section 3: Interactive Annotation Highlights & Indicators */
+/* ========================================================= */
+.highlight-grammar {
+  @apply bg-rose-100/90 text-rose-950 border-b-2 border-rose-500 rounded-sm px-0.5 cursor-pointer transition-colors duration-150;
+}
+.highlight-grammar:hover, .highlight-grammar.is-active {
+  @apply bg-rose-200/90 ring-2 ring-rose-400;
+}
+
+.highlight-logic {
+  @apply bg-amber-100/90 text-amber-950 border-b-2 border-amber-500 rounded-sm px-0.5 cursor-pointer transition-colors duration-150;
+}
+.highlight-logic:hover, .highlight-logic.is-active {
+  @apply bg-amber-200/90 ring-2 ring-amber-400;
+}
+
+.highlight-offtopic {
+  @apply bg-sky-100/90 text-sky-950 border-b-2 border-sky-500 rounded-sm px-0.5 cursor-pointer transition-colors duration-150;
+}
+.highlight-offtopic:hover, .highlight-offtopic.is-active {
+  @apply bg-sky-200/90 ring-2 ring-sky-400;
+}
+
+.highlight-insight {
+  @apply bg-emerald-100/90 text-emerald-950 border-b-2 border-emerald-500 rounded-sm px-0.5 cursor-pointer transition-colors duration-150;
+}
+.highlight-insight:hover, .highlight-insight.is-active {
+  @apply bg-emerald-200/90 ring-2 ring-emerald-400;
+}

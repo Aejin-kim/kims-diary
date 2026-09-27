@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. 사용자 계정 프로필 (개발 에뮬레이터 및 최초 가입자 판별을 위한 조회 허용)
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    
+    // 2. 학생 프로필
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+    
+    // 3. 에세이 평가 결과
+    match /assessments/{assessmentId} {
+      allow read, write: if true;
+    }
+
+    // 4. N차 퇴고 버전 관리
+    match /essay_versions/{versionId} {
+      allow read, write: if true;
+    }
+
+    // 5. 알림
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
+
+    // 6. 에세이 제출 및 다면평가 워크플로우 (신규)
+    match /submissions/{submissionId} {
+      allow read, write: if true;
+    }
+  }
+}

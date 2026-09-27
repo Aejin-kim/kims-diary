@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "kims-diary",
+    "demo": "demo-kims-diary"
+  }
+}
